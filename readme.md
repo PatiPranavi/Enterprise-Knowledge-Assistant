@@ -1,167 +1,172 @@
 # Enterprise Knowledge Assistant
 
-Enterprise Knowledge Assistant is a Retrieval-Augmented Generation (RAG) application that enables users to interact with PDF documents through natural language. Instead of manually searching through lengthy documents, users can upload one or more PDFs and ask questions in plain English. The system retrieves the most relevant content from the uploaded documents and generates context-aware answers using Google's Gemini large language model.
+A Retrieval-Augmented Generation (RAG) application that allows users to upload multiple PDF documents and ask questions about their content using natural language.
 
-This project demonstrates the practical implementation of modern Generative AI concepts, including document processing, semantic search, vector databases, embeddings, and large language model integration.
+## Features
 
----
+- Upload multiple PDF documents
+- Extract text page by page
+- Split documents into smaller chunks
+- Generate semantic embeddings using HuggingFace
+- Store embeddings in FAISS
+- Retrieve relevant chunks using similarity search
+- Generate grounded answers using Google Gemini
+- Display source document and page numbers
+- Reduce unsupported answers using a grounding prompt
+- Interactive Streamlit interface
 
-# Features
+## How It Works
 
-- Upload and process multiple PDF documents simultaneously.
-- Extract text from PDF files automatically.
-- Split large documents into meaningful text chunks.
-- Generate semantic embeddings using Hugging Face Sentence Transformers.
-- Store embeddings in a FAISS vector database for efficient similarity search.
-- Retrieve the most relevant document sections based on user queries.
-- Generate accurate answers using Google's Gemini model.
-- Interactive web interface built with Streamlit.
-- Environment variable support for secure API key management.
-
----
-
-# Tech Stack
-
-| Category | Technologies |
-|----------|--------------|
-| Language | Python |
-| Frontend | Streamlit |
-| LLM Framework | LangChain |
-| Large Language Model | Google Gemini |
-| Embedding Model | Hugging Face Sentence Transformers |
-| Vector Database | FAISS |
-| PDF Processing | PyPDF2 |
-| Environment Management | Python Dotenv |
-
----
-
-# Project Structure
-
-```
-Enterprise-Knowledge-Assistant/
-│
-├── docs/
-│   └── PDF-LangChain.jpg
-│
-├── app.py                 # Streamlit application
-├── rag.py                 # RAG pipeline implementation
-├── utils.py               # Utility functions
-├── htmlTemplates.py       # UI templates
-├── requirements.txt       # Project dependencies
-├── .env.example           # Environment variable template
-├── .gitignore
-└── README.md
+```text
+PDF Documents
+      ↓
+Text Extraction
+      ↓
+Document Chunking
+      ↓
+HuggingFace Embeddings
+      ↓
+FAISS Vector Store
+      ↓
+Similarity Search
+      ↓
+Relevant Context
+      ↓
+Grounded Prompt
+      ↓
+Google Gemini
+      ↓
+Answer + Sources
 ```
 
----
+## Tech Stack
 
-# Installation
+- Python
+- Streamlit
+- LangChain
+- Google Gemini
+- HuggingFace Sentence Transformers
+- FAISS
+- PyPDF2
 
-## Clone the Repository
+## RAG Pipeline
 
-```bash
-git clone https://github.com/PatiPranavi/Enterprise-Knowledge-Assistant.git
+### 1. Document Processing
 
-cd Enterprise-Knowledge-Assistant
-```
+PDF files are read page by page using PyPDF2.
 
-## Create a Virtual Environment
+Each page is stored as a LangChain `Document` with metadata containing:
 
-```bash
-python -m venv venv
-```
+- Source PDF filename
+- Page number
 
-## Activate the Virtual Environment
+This metadata is used to display the source of retrieved information.
 
-### Windows
+### 2. Text Chunking
 
-```bash
-venv\Scripts\activate
-```
+Documents are split into smaller chunks using `RecursiveCharacterTextSplitter`.
 
-### Linux / macOS
+- Chunk size: 1000 characters
+- Chunk overlap: 200 characters
 
-```bash
-source venv/bin/activate
-```
+Chunking allows the system to work with smaller portions of documents during retrieval.
 
-## Install Dependencies
+### 3. Embeddings
+
+Each text chunk is converted into a numerical vector using the HuggingFace model:
+
+`sentence-transformers/all-MiniLM-L6-v2`
+
+These vectors capture the semantic meaning of the text and are used for similarity-based retrieval.
+
+### 4. Vector Store
+
+The generated embeddings are stored in a FAISS vector store.
+
+FAISS is used to perform efficient similarity searches over the embedded document chunks.
+
+### 5. Retrieval
+
+When a user asks a question, the question is compared against the stored document embeddings.
+
+The system retrieves the top 4 most relevant chunks using vector similarity search.
+
+### 6. Answer Generation
+
+The retrieved chunks are passed to Google Gemini as context.
+
+The prompt instructs the model to answer only using the provided context.
+
+If the required information is not present in the provided context, the assistant is instructed to respond that the information could not be found in the uploaded documents.
+
+### 7. Source Traceability
+
+Each retrieved document chunk contains metadata identifying its source PDF and page number.
+
+The application displays the source PDF filename and page number below the generated answer.
+
+## Grounding
+
+The application uses a grounding prompt to reduce unsupported responses.
+
+If the required information is not present in the retrieved context, the assistant responds:
+
+> "I couldn't find this information in the uploaded documents."
+
+This keeps the generated response focused on the uploaded documents.
+
+## Installation
+
+Install the required dependencies:
 
 ```bash
 pip install -r requirements.txt
 ```
 
----
+Create a `.env` file in the project root:
 
-# Environment Variables
-
-Create a `.env` file in the root directory.
-
-Add your Google Gemini API key.
-
-```env
+```text
 GOOGLE_API_KEY=your_google_api_key
 ```
 
----
+## Run the Application
 
-# Running the Application
-
-Start the Streamlit server.
+Start the Streamlit application using:
 
 ```bash
-streamlit run app.py
+python -m streamlit run app.py
 ```
 
-The application will be available at:
+The application allows users to upload multiple PDF documents, build a searchable knowledge base, and ask questions about their content.
 
+## Project Structure
+
+```text
+Enterprise-Knowledge-Assistant/
+│
+├── app.py
+├── rag.py
+├── requirements.txt
+├── .env.example
+├── .gitignore
+├── readme.md
+├── htmlTemplates.py
+├── utils.py
+│
+└── docs/
+    └── PDF-LangChain.jpg
 ```
-http://localhost:8501
-```
 
----
+## Future Improvements
 
-# Workflow
+The current implementation focuses on a simple and explainable RAG pipeline. Possible future improvements include:
 
-The application follows a Retrieval-Augmented Generation (RAG) pipeline:
-
-1. Users upload one or more PDF documents.
-2. Text is extracted from each document using PyPDF2.
-3. The extracted text is divided into smaller chunks using LangChain's Recursive Character Text Splitter.
-4. Each chunk is converted into vector embeddings using Hugging Face Sentence Transformers.
-5. The embeddings are stored in a FAISS vector database.
-6. When a user submits a question, the system retrieves the most relevant document chunks through semantic similarity search.
-7. The retrieved context is passed to Google's Gemini model, which generates a context-aware response.
-
----
-
-# Example Use Cases
-
-- Resume analysis
-- Research paper summarization
-- Academic document question answering
-- Company policy document search
-- Legal and technical documentation assistance
-- Knowledge base chatbot
-- Enterprise document search
-
----
-
-# Future Enhancements
-
-- Source citations with page numbers
+- Hybrid search combining semantic and keyword-based retrieval
+- Reranking retrieved documents
 - Conversation memory
-- Chat history
 - Streaming responses
-- Support for DOCX, TXT and Markdown files
+- Support for DOCX, TXT, and Markdown files
 - OCR support for scanned PDFs
-- User authentication
+- Authentication and access control
 - Cloud deployment
-- Multi-language document support
-- Export chat history
-
----
-
-# Acknowledgements
-
-This project leverages several open-source technologies including Streamlit, LangChain, Hugging Face, FAISS, PyPDF2, and Google's Gemini API.
+- RAG evaluation and monitoring

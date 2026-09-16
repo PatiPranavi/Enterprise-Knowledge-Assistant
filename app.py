@@ -52,7 +52,20 @@ if question:
     with st.chat_message("user"):
         st.write(question)
 
-    answer = st.session_state.chain.invoke(question)
+    result = st.session_state.chain(question)
 
     with st.chat_message("assistant"):
-        st.write(answer)
+        st.write(result["answer"])
+
+        st.markdown("**Sources:**")
+
+        shown_sources = set()
+
+        for doc in result["sources"]:
+            source = doc.metadata.get("source", "Unknown")
+            page = doc.metadata.get("page", "Unknown")
+            source_key = (source, page)
+
+            if source_key not in shown_sources:
+                st.write(f"📄 {source} — Page {page}")
+                shown_sources.add(source_key)

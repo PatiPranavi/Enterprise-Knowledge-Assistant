@@ -1,7 +1,6 @@
 
 import os
-from typing import List
-
+from langchain_core.documents import Document
 from PyPDF2 import PdfReader
 
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -12,7 +11,6 @@ from langchain_community.vectorstores import FAISS
 
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
-from langchain_core.runnables import RunnablePassthrough
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -24,39 +22,38 @@ GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 # PDF READER
 # -----------------------------
 def read_pdf(files):
-
-    text = ""
+    documents = []
 
     for pdf in files:
-
         reader = PdfReader(pdf)
 
-        for page in reader.pages:
-
+        for page_number, page in enumerate(reader.pages, start=1):
             page_text = page.extract_text()
 
             if page_text:
-                text += page_text + "\n"
+                documents.append(
+                    Document(
+                        page_content=page_text,
+                        metadata={
+                            "source": pdf.name,
+                            "page": page_number
+                        }
+                    )
+                )
 
-    return text
-
+    return documents
 
 # -----------------------------
 # TEXT SPLITTER
 # -----------------------------
-def split_text(text):
-
+def split_text(documents):
     splitter = RecursiveCharacterTextSplitter(
-
         chunk_size=1000,
-
         chunk_overlap=200,
-
         separators=["\n\n", "\n", " ", ""]
     )
 
-    return splitter.split_text(text)
-
+    return splitter.split_documents(documents)
 
 # -----------------------------
 # VECTOR STORE
@@ -70,8 +67,8 @@ def create_vectorstore(chunks):
 
     )
 
-    vectorstore = FAISS.from_texts(
-        texts=chunks,
+    vectorstore = FAISS.from_documents(
+        documents=chunks,
         embedding=embeddings
     )
 
@@ -121,17 +118,23 @@ Answer:
 # FORMAT DOCUMENTS
 # -----------------------------
 def format_docs(docs):
+    formatted_docs = []
 
-    return "\n\n".join(doc.page_content for doc in docs)
+    for doc in docs:
+        source = doc.metadata.get("source", "Unknown")
+        page = doc.metadata.get("page", "Unknown")
 
+        formatted_docs.append(
+            f"Source: {source}, Page: {page}\n{doc.page_content}"
+        )
 
+    return "\n\n".join(formatted_docs)
 # -----------------------------
 # BUILD RAG CHAIN
 # -----------------------------
 def build_rag_chain(vectorstore):
-
     llm = ChatGoogleGenerativeAI(
-        model="gemini-2.5-flash-lite",
+        model="gemini-3.5-flash-lite",
         google_api_key=GOOGLE_API_KEY,
         temperature=0
     )
@@ -140,14 +143,21 @@ def build_rag_chain(vectorstore):
         search_kwargs={"k": 4}
     )
 
-    chain = (
-        {
-            "context": retriever | format_docs,
-            "question": RunnablePassthrough(),
-        }
-        | prompt
-        | llm
-        | StrOutputParser()
-    )
+    def retrieve_and_answer(question):
+        docs = retriever.invoke(question)
 
-    return chain
+        context = format_docs(docs)
+
+        messages = prompt.invoke({
+            "context": context,
+            "question": question
+        })
+
+        answer = llm.invoke(messages)
+
+        return {
+            "answer": StrOutputParser().invoke(answer),
+            "sources": docs
+        }
+
+    return retrieve_and_answer
